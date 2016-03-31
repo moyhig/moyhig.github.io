@@ -1,10 +1,34 @@
 (function(ext) {
+    var ROSLIB = require('http://cdn.robotwebtools.org/roslibjs/current/roslib.js');
+    var ros = new ROSLIB.Ros({
+      url : 'ws://10.211.55.29:9090'
+    });
+    var connected = false;
+
+    ros.on('connection', function() {
+      console.log('Connected to websocket server.');
+      connected = true;
+    });
+
+    ros.on('error', function(error) {
+      console.log('Error connecting to websocket server: ', error);
+    });
+
+    ros.on('close', function() {
+      console.log('Connection to websocket server closed.');
+      connected = false;
+    });
+
     // shutdown時に呼ばれる
     ext._shutdown = function() {};
 
     // statusを返してやる。デバイスとつながってない時とかここで色々返せる。
     ext._getStatus = function() {
+      if (connected) {
         return {status: 2, msg: 'Ready'};
+      } else {
+        return {status: 1, msg: 'Disconnected'};
+      }
     };
 
     // blockが呼び出された時に呼ばれる関数を登録する。
