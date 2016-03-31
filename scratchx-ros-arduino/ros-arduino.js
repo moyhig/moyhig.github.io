@@ -1,5 +1,5 @@
 (function(ext) {
-    var ROSLIB = require('http://cdn.robotwebtools.org/roslibjs/current/roslib.js');
+    $.getScript('http://cdn.robotwebtools.org/roslibjs/current/roslib.js');
     var ros = new ROSLIB.Ros({
       url : 'ws://10.211.55.29:9090'
     });
