@@ -1,6 +1,6 @@
 (function(ext) {
   var url1 = 'http://cdn.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js';
-  var url2 = 'http://cdn.robotwebtools.org/roslibjs/current/roslib.js';
+  var url2 = 'http://cdn.robotwebtools.org/roslibjs/current/roslib.min.js';
     $.getScript(url1, function(d1, s1, x1) {
       $.getScript(url2, function(d2, s2, x2) {
         var ros = new ROSLIB.Ros({
