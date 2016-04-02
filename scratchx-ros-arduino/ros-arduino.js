@@ -525,6 +525,7 @@
         var websocket = new WebSocketDevice();
         potentialDevices.push(websocket);
 	device = potentialDevices.shift();
+        if (!device) return;
 
         device.open('ws://10.211.55.20:4649/Echo', ['echo-protocol']);
 	console.log('Attempting connection with ' + device.id);
