@@ -189,7 +189,7 @@
                 }
                 if (i == sysexBytesRead) break;
             }
-            //queryAnalogMapping();
+            queryAnalogMapping();
             break;
         case ANALOG_MAPPING_RESPONSE:
             for (var pin = 0; pin < analogChannel.length; pin++)
@@ -215,14 +215,8 @@
                 clearTimeout(watchdog);
                 watchdog = null;
                 connected = true;
-                // setTimeout(init, 200);
+                setTimeout(init, 200);
                 console.log('connected');
-                for (var i = 0; i < 16; i++) {
-                    var output = new Uint8Array([REPORT_DIGITAL | i, 0x01]);
-                    device.send(output.buffer);
-                }
-
-                queryCapabilities();
             }
             pinging = false;
             pingCount = 0;
@@ -509,7 +503,7 @@
     var poller = null;
     var watchdog = null;
 
-    var WebSocketDevie = function() {
+    var WebSocketDevice = function() {
       this.socket = null;
     };
     WebSocketDevice.prototype.open = function(url, proto) {
@@ -518,16 +512,19 @@
       connected = true;
     };
     WebSocketDevice.prototype.close = function() {};
-    WebSocketDevice.prototype..set_receive_handler = function(handler) {
+    WebSocketDevice.prototype.set_receive_handler = function(handler) {
       this.socket.onmessage = function (e) {
-          handler(inputData);
+          handler(e.data);
       };
-    }
+    };
+    WebSocketDevice.prototype.send = function(data) {
+      this.socket.send(data);
+    };
 
     {
         var websocket = new WebSocketDevice();
         potentialDevices.push(websocket);
-	device = potentialDevice.shift();
+	device = potentialDevices.shift();
 
         device.open('ws://10.211.55.20:4649/Echo', ['echo-protocol']);
 	console.log('Attempting connection with ' + device.id);
@@ -549,6 +546,8 @@
             device = null;
             tryNextDevice();
         }, 5000);
+        clearInterval(watchdog);
+        watchdog = null;
     }
 
     ext._shutdown = function() {
