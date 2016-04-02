@@ -510,8 +510,14 @@
       this.socket = new WebSocket(url, proto) ;
       this.socket.binaryType = 'arraybuffer';
       connected = true;
+      this.socket.onclose = function () {
+         connected = false;
+      };
     };
-    WebSocketDevice.prototype.close = function() {};
+    WebSocketDevice.prototype.close = function() {
+      this.socket.close();
+      connected = false;
+    };
     WebSocketDevice.prototype.set_receive_handler = function(handler) {
       this.socket.onmessage = function (e) {
           handler(e.data);
@@ -531,7 +537,7 @@
 	console.log('Attempting connection with ' + device.id);
         device.set_receive_handler(function(data) {
             var inputData = new Uint8Array(data);
-            console.log('received: ' + inputData.length + ' bytes');
+            // console.log('received: ' + inputData.length + ' bytes');
             processInput(inputData);
 	});
 
