@@ -118,7 +118,7 @@
         // Since _deviceRemoved is not used with Serial devices
         // ping device regularly to check connection
         if (false) {
-        pinger = setInterval(function() {
+            pinger = setInterval(function() {
                 if (pinging) {
                     if (++pingCount > 6) {
                         clearInterval(pinger);
@@ -303,7 +303,12 @@
             return;
         }
         pinMode(pin, INPUT);
-        return (digitalInputData[pin >> 3] >> (pin & 0x07)) & 0x01;
+	var v = (digitalInputData[pin >> 3] >> (pin & 0x07)) & 0x01;
+	if (ros.connected) {
+	    console.log('digitalRead: ' + pin + ', ' + v);
+	    ros.publish(v);
+	}
+        return v;
     }
 
     function analogWrite(pin, val) {
@@ -513,6 +518,51 @@
     var poller = null;
     var watchdog = null;
 
+    var NS = (function() {
+	var spaces = {};
+	return function(name) {
+	    return (spaces[name]) ? spaces[name] : spaces[name] = {};
+	};
+    })();
+
+    var ros = NS("ros");
+    var url1 = 'http://cdn.robotwebtools.org/EventEmitter2/current/eventemitter2.min.js';
+    var url2 = 'http://cdn.robotwebtools.org/roslibjs/current/roslib.min.js';
+    $.getScript(url1, function(d1, s1, x1) {
+	$.getScript(url2, function(d2, s2, x2) {
+	    ros.core = new ROSLIB.Ros();
+
+	    ros.core.on('connection', function() {
+		console.log('Connected to websocket server.');
+		ros.connected = true;
+	    });
+
+	    ros.core.on('error', function(error) {
+		console.log('Error connecting to websocket server: ', error);
+	    });
+
+	    ros.core.on('close', function() {
+		console.log('Connection to websocket server closed.');
+		ros.connected = false;
+	    });
+	    ros.core.connect('ws://133.1.177.112:9090');
+
+	    var digitalValue = new ROSLIB.Topic({
+		ros: ros.core,
+		name: '/digitalValue',
+		messageType: 'std_msgs/Byte',
+	    });
+
+	    ros.publish = function (v) {
+		console.log('ros_publish');
+		var pv = new ROSLIB.Message({
+		    data: v,
+		});
+		digitalValue.publish(pv);
+	    };
+	});
+    });
+
     var WebSocketDevice = function() {
       this.socket = null;
     };
@@ -545,22 +595,22 @@
     {
         var websocket = new WebSocketDevice();
         potentialDevices.push(websocket);
-	device = potentialDevices.shift();
+        device = potentialDevices.shift();
         // if (!device) return;
 
         device.open('ws://133.1.177.101:4649/Echo', ['echo-protocol']);
-	console.log('Attempting connection with ' + device.id);
+        console.log('Attempting connection with ' + device.id);
         device.set_receive_handler(function(data) {
             var inputData = new Uint8Array(data);
             // console.log('received: ' + inputData.length + ' bytes');
             processInput(inputData);
-	});
+        });
 
-	poller = setInterval(function() {
+        poller = setInterval(function() {
             queryFirmware();
         }, 60000);
 
-	watchdog = setTimeout(function() {
+        watchdog = setTimeout(function() {
             clearInterval(poller);
             poller = null;
             device.set_receive_handler(null);
