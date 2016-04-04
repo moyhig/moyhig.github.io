@@ -117,6 +117,7 @@
         // TEMPORARY WORKAROUND
         // Since _deviceRemoved is not used with Serial devices
         // ping device regularly to check connection
+        if (false) {
         pinger = setInterval(function() {
                 if (pinging) {
                     if (++pingCount > 6) {
@@ -137,6 +138,7 @@
                     pinging = true;
                 }
             }, 100);
+        }
     }
 
     function hasCapability(pin, mode) {
@@ -166,7 +168,7 @@
     }
 
     function setDigitalInputs(portNum, portData) {
-        console.log('portNum: ' + portNum + ', portData: ' + portData);
+        // console.log('portNum: ' + portNum + ', portData: ' + portData);
         digitalInputData[portNum] = portData;
     }
 
@@ -271,9 +273,15 @@
         }
     }
 
+    var _pinMode = [];
+
     function pinMode(pin, mode) {
+      if (_pinMode[pin] != mode) {
         var msg = new Uint8Array([PIN_MODE, pin, mode]);
         device.send(msg.buffer);
+        _pinMode[pin] = mode;
+        // console.log('pinMode: ' + pin + ', ' + mode + ', ' + _pinMode[pin]);
+      }
     }
 
     function analogRead(pin) {
@@ -289,6 +297,7 @@
     }
 
     function digitalRead(pin) {
+        // console.log('digitalRead: ' + pin);
         if (!hasCapability(pin, INPUT)) {
             console.log('ERROR: valid input pins are ' + pinModes[INPUT].join(', '));
             return;
@@ -314,6 +323,7 @@
     }
 
     function digitalWrite(pin, val) {
+        // console.log('digitalWrite: ' + pin +  ', ' + val);
         if (!hasCapability(pin, OUTPUT)) {
             console.log('ERROR: valid output pins are ' + pinModes[OUTPUT].join(', '));
             return;
@@ -507,14 +517,19 @@
       this.socket = null;
     };
     WebSocketDevice.prototype.open = function(url, proto) {
+      this.id = 'WebSocket';
       this.socket = new WebSocket(url, proto) ;
       this.socket.binaryType = 'arraybuffer';
       connected = true;
+      this.socket.onopen = function () {
+        init();
+      };
       this.socket.onclose = function () {
-         connected = false;
+        connected = false;
       };
     };
     WebSocketDevice.prototype.close = function() {
+      console.log('wsc closed');
       this.socket.close();
       connected = false;
     };
@@ -531,9 +546,9 @@
         var websocket = new WebSocketDevice();
         potentialDevices.push(websocket);
 	device = potentialDevices.shift();
-        if (!device) return;
+        // if (!device) return;
 
-        device.open('ws://10.211.55.20:4649/Echo', ['echo-protocol']);
+        device.open('ws://133.1.177.101:4649/Echo', ['echo-protocol']);
 	console.log('Attempting connection with ' + device.id);
         device.set_receive_handler(function(data) {
             var inputData = new Uint8Array(data);
@@ -543,7 +558,7 @@
 
 	poller = setInterval(function() {
             queryFirmware();
-        }, 1000);
+        }, 60000);
 
 	watchdog = setTimeout(function() {
             clearInterval(poller);
@@ -555,6 +570,7 @@
         }, 5000);
         clearInterval(watchdog);
         watchdog = null;
+
     }
 
     ext._shutdown = function() {
