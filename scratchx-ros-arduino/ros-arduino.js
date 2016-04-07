@@ -26,7 +26,9 @@
                 DIGITAL_MESSAGE = 0x90,
                 START_SYSEX = 0xF0,
                 END_SYSEX = 0xF7,
+                SYSTEM_RESET = 0xFF,
                 QUERY_FIRMWARE = 0x79,
+                SAMPLING_INTERVAL = 0x7A,
                 REPORT_VERSION = 0xF9,
                 ANALOG_MESSAGE = 0xE0,
                 ANALOG_MAPPING_QUERY = 0x69,
@@ -113,44 +115,46 @@
 
             function init() {
 
-		{
-		    var msg2 = new Uint8Array([
-			START_SYSEX, 0x7A, 0x40, 0x00, END_SYSEX]); // report timer
+                {
+                    var msg2 = new Uint8Array([
+                        START_SYSEX, SAMPLING_INTERVAL, 0x40, 0x00, END_SYSEX]); // LSB:0x40, MSB:0x00 = 64ms (default: 19ms)
                     device.send(msg2.buffer);
-		}
+                }
 
-                //for (var i = 0; i < 16; i++) {
-                //    var output = new Uint8Array([REPORT_DIGITAL | i, 0x01]);
-                //    device.send(output.buffer);
-                //}
+                /*
+                  for (var i = 0; i < 16; i++) {
+                  var output = new Uint8Array([REPORT_DIGITAL | i, 0x01]);
+                  device.send(output.buffer);
+                  }
+                */
 
                 queryCapabilities();
 
                 // TEMPORARY WORKAROUND
                 // Since _deviceRemoved is not used with Serial devices
                 // ping device regularly to check connection
-                if (false) {
-                    pinger = setInterval(function() {
-                        if (pinging) {
-                            if (++pingCount > 6) {
-                                clearInterval(pinger);
-                                pinger = null;
-                                connected = false;
-                                if (device) device.close();
-                                device = null;
-                                return;
-                            }
-                        } else {
-                            if (!device) {
-                                clearInterval(pinger);
-                                pinger = null;
-                                return;
-                            }
-                            queryFirmware();
-                            pinging = true;
-                        }
-                    }, 100);
-                }
+                /*
+                  pinger = setInterval(function() {
+                  if (pinging) {
+                  if (++pingCount > 6) {
+                  clearInterval(pinger);
+                  pinger = null;
+                  connected = false;
+                  if (device) device.close();
+                  device = null;
+                  return;
+                  }
+                  } else {
+                  if (!device) {
+                  clearInterval(pinger);
+                  pinger = null;
+                  return;
+                  }
+                  queryFirmware();
+                  pinging = true;
+                  }
+                  }, 100);
+                */
             }
 
             function hasCapability(pin, mode) {
@@ -179,7 +183,7 @@
                 device.send(msg.buffer);
             }
 
-           function setDigitalInputs(portNum, portData) {
+            function setDigitalInputs(portNum, portData) {
                 // console.log('portNum: ' + portNum + ', portData: ' + portData);
                 digitalInputData[portNum] = portData;
             }
@@ -210,14 +214,17 @@
                         analogChannel[pin] = 127;
                     for (var i = 1; i < sysexBytesRead; i++)
                         analogChannel[i-1] = storedInputData[i];
-                    //for (var pin = 0; pin < analogChannel.length; pin++) {
-                    //    if (analogChannel[pin] != 127) {
-                    //        var out = new Uint8Array([
-                    //            REPORT_ANALOG | analogChannel[pin], 0x01]);
-                    //        device.send(out.buffer);
-                    //    }
-                    //}
+                    /*
+                      for (var pin = 0; pin < analogChannel.length; pin++) {
+                      if (analogChannel[pin] != 127) {
+                      var out = new Uint8Array([
+                      REPORT_ANALOG | analogChannel[pin], 0x01]);
+                      device.send(out.buffer);
+                      }
+                      }
+                    */
                     ready = true;
+                    console.log(device.id + 'is Ready');
                     notifyConnection = true;
                     setTimeout(function() {
                         notifyConnection = false;
@@ -289,33 +296,33 @@
 
             function pinMode(pin, mode) {
                 if (_pinMode[pin] != mode) {
-		    if (mode == INPUT) {
-			var portNum = (pin >> 3) & 0x0F;
-			var output = new Uint8Array([REPORT_DIGITAL | portNum, 0x01]);
-			device.send(output.buffer);
-		    }
+                    if (mode == INPUT) {
+                        var portNum = (pin >> 3) & 0x0F;
+                        var output = new Uint8Array([REPORT_DIGITAL | portNum, 0x01]);
+                        device.send(output.buffer);
+                    }
                     var msg = new Uint8Array([PIN_MODE, pin, mode]);
                     device.send(msg.buffer);
                     _pinMode[pin] = mode;
                 }
             }
 
-	    var _analogReport = [];
+            var _analogReport = [];
 
             function analogRead(pin) {
                 if (pin >= 0 && pin < pinModes[ANALOG].length) {
-		    {
-			if (!_analogReport[pin]) {
-			    for (var i = 0; i < analogChannel.length; i++) {
-				if (pin == analogChannel[i]) {
-				    var out = new Uint8Array([
-					REPORT_ANALOG | analogChannel[i], 0x01]);
-				    device.send(out.buffer);
-				    _analogReport[pin] = true;
-				}
-			    }
-			}
-		    }
+                    {
+                        if (!_analogReport[pin]) {
+                            for (var i = 0; i < analogChannel.length; i++) {
+                                if (pin == analogChannel[i]) {
+                                    var out = new Uint8Array([
+                                        REPORT_ANALOG | analogChannel[i], 0x01]);
+                                    device.send(out.buffer);
+                                    _analogReport[pin] = true;
+                                }
+                            }
+                        }
+                    }
                     return Math.round((analogInputData[pin] * 100) / 1023);
                 } else {
                     var valid = [];
@@ -542,88 +549,93 @@
                 if (!device)
                     tryNextDevice();
             };
+            // ext._deviceConnected() is not called, so kick entry tryNextDevice() later...
 
             var poller = null;
             var watchdog = null;
 
-            var RosSocketDevice = function() {
+            var RosSocketDevice = function(e) {
+                this.endPoint = e.endPoint;
+                this.id = 'RosSocket';
+                this.ros = new ROSLIB.Ros();
+                this.rosFirmataWrite = new ROSLIB.Topic({
+                    ros: this.ros,
+                    name: '/COM60/sub',
+                    messageType: 'std_msgs/Int8MultiArray',
+                    // messageType: 'std_msgs/String',
+                });
+                this.rosFirmataRead = new ROSLIB.Topic({
+                    ros: this.ros,
+                    name: '/COM60/pub',
+                    messageType: 'std_msgs/Int8MultiArray',
+                    // messagetype: 'std_msgs/String',
+                });
+                this.queue = new Array();
             };
 
-
-            var ros = new ROSLIB.Ros();
-            var rosFirmataWrite = new ROSLIB.Topic({
-                ros: ros,
-                name: '/COM60/sub',
-                messageType: 'std_msgs/Int8MultiArray',
-                // messageType: 'std_msgs/String',
-            });
-            var rosFirmataRead = new ROSLIB.Topic({
-                ros: ros,
-                name: '/COM60/pub',
-                messageType: 'std_msgs/Int8MultiArray',
-                // messagetype: 'std_msgs/String',
-            });
-
             RosSocketDevice.prototype.open = function() {
-                this.id = 'RosSocket';
-                ros.on('connection', function() {
+                this.ros.on('connection', function() {
                     console.log('Connected to websocket server.');
                     connected = true;
-		    {
-			var msg1 = new Uint8Array([0xFF]);	// board reset
-			device.send(msg1.buffer);
-		    }
-
+                    {
+                        var msg1 = new Uint8Array([SYSTEM_RESET]);
+                        device.send(msg1.buffer); // smelling...
+                    }
                     setTimeout(function() {
                         init();
-                    }, 4000);
+                    }, 2000); // defar to wait callback
                 });
-                ros.on('error', function(error) {
+                this.ros.on('error', function(error) {
                     console.log('Error connecting to websocket server: ', error);
                 });
-                ros.on('close', function() {
+                this.ros.on('close', function() {
                     console.log('Connection to websocket server closed.');
                     connected = false;
                 });
-                ros.connect('ws://10.211.55.29:9090');
+                this.ros.connect(this.endPoint);
+                {
+                    var queue = this.queue;
+                    setInterval(function() {
+                        // console.log('queue length: ' + queue.length);
+                        if (queue.length > 0) {
+                            var pv = queue.shift();
+                            // console.log('dequeue: ' + pv.data);
+                            device.rosFirmataWrite.publish(pv); // smelling...
+                        }
+                    }, 20);
+                }
             };
+
             RosSocketDevice.prototype.close = function() {
-                rosFirmataRead.unsubscribe();
+                this.rosFirmataRead.unsubscribe();
                 connected = false;
             };
+
             RosSocketDevice.prototype.set_receive_handler = function(handler) {
-                rosFirmataRead.subscribe(function (e) {
+                this.rosFirmataRead.subscribe(function (e) {
                     // console.log('receive:', e.data);
                     // var r = new Uint8Array(JSON.parse(e.data));
                     var r = new Uint8Array(e.data);
                     handler(r);
                 });
             };
-            var queue = [];
+
             RosSocketDevice.prototype.send = function(v) {
                 // var a = JSON.stringify(Array.from(new Uint8Array(v)));
                 var a = Array.from(new Int8Array(v));
                 var pv = new ROSLIB.Message({
                     data: a,
                 });
-                // console.log('send: ' + pv.data);
-                queue.push(pv);
+                this.queue.push(pv);
+                // console.log('send: ' + pv.data + '(' + this.queue.length + ')');
             };
-
-            setInterval(function() {
-                if (queue.length > 0) {
-		    var pv = queue.shift();
-		    // console.log('send: ' + pv.data);
-                    rosFirmataWrite.publish(pv);
-                }
-            }, 20);
 
             var WebSocketDevice = function() {
                 this.socket = null;
             };
-            WebSocketDevice.prototype.open = function(url, proto) {
+            WebSocketDevice.prototype.open = function() {
                 this.id = 'WebSocket';
-                this.socket = new WebSocket(url, proto) ;
+                this.socket = new WebSocket('ws://10.211.55.20:4649/Echo', ['echo-protocol']);
                 this.socket.binaryType = 'arraybuffer';
                 connected = true;
                 this.socket.onopen = function () {
@@ -648,13 +660,10 @@
             };
 
             function tryNextDevice() {
-                var socket = new RosSocketDevice();
-                potentialDevices.push(socket);
                 device = potentialDevices.shift();
                 if (!device) return;
 
-                //device.open('ws://10.211.55.20:4649/Echo', ['echo-protocol']);
-                device.open();
+                device.open(/* { stopBits: 0, bitRate: 57600, ctsFlowControl: 0 } */);
                 console.log('Attempting connection with ' + device.id);
                 device.set_receive_handler(function(data) {
                     var inputData = new Uint8Array(data);
@@ -677,7 +686,11 @@
                 clearInterval(watchdog);
                 watchdog = null;
             }
-            tryNextDevice();
+
+            {
+                potentialDevices.push(new RosSocketDevice({endPoint: 'ws://10.211.55.29:9090'}));
+                tryNextDevice();
+            }
 
             ext._shutdown = function() {
                 // TODO: Bring all pins down
