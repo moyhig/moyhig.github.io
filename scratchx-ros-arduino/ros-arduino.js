@@ -560,15 +560,15 @@
                 this.ros = new ROSLIB.Ros();
                 this.rosFirmataWrite = new ROSLIB.Topic({
                     ros: this.ros,
-                    name: '/COM60/sub',
-                    messageType: 'std_msgs/Int8MultiArray',
-                    // messageType: 'std_msgs/String',
+                    name: '/COM5/sub',
+                    //messageType: 'std_msgs/Int8MultiArray',
+                    messageType: 'std_msgs/String',
                 });
                 this.rosFirmataRead = new ROSLIB.Topic({
                     ros: this.ros,
-                    name: '/COM60/pub',
-                    messageType: 'std_msgs/Int8MultiArray',
-                    // messagetype: 'std_msgs/String',
+                    name: '/COM5/pub',
+                    //messageType: 'std_msgs/Int8MultiArray',
+                    messagetype: 'std_msgs/String',
                 });
                 this.queue = new Array();
             };
@@ -613,16 +613,16 @@
 
             RosSocketDevice.prototype.set_receive_handler = function(handler) {
                 this.rosFirmataRead.subscribe(function (e) {
-                    // console.log('receive:', e.data);
-                    // var r = new Uint8Array(JSON.parse(e.data));
-                    var r = new Uint8Array(e.data);
+                    //console.log('receive:', e.data);
+                    var r = new Uint8Array(JSON.parse(e.data));
+                    //var r = new Uint8Array(e.data);
                     handler(r);
                 });
             };
 
             RosSocketDevice.prototype.send = function(v) {
-                // var a = JSON.stringify(Array.from(new Uint8Array(v)));
-                var a = Array.from(new Int8Array(v));
+                var a = JSON.stringify(Array.from(new Uint8Array(v)));
+                //var a = Array.from(new Int8Array(v));
                 var pv = new ROSLIB.Message({
                     data: a,
                 });
